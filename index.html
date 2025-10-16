@@ -2,7 +2,7 @@
 <html lang="en" />
 <head>
   <meta charset="UTF-8" />
-  <title>Randomized Starry Lines</title>
+  <title>Persistent Starry Lines</title>
   <style>
     body {
       margin: 0;
@@ -84,8 +84,8 @@
     // Possible directions only horizontal or vertical
     const directions = ['up', 'down', 'left', 'right'];
 
-    // Current animation state
-    let path = [];
+    // Animation state
+    let path = []; // stores finished lines
     let currentLine = null;
     let depth = 0;
 
@@ -116,6 +116,18 @@
       ctx.shadowBlur = 0;
     }
 
+    function drawLine(from, to) {
+      ctx.strokeStyle = '#fffacd';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#fffacd';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
     function getNextPoint(x, y, direction) {
       switch (direction) {
         case 'up':
@@ -129,30 +141,27 @@
       }
     }
 
-    // Reset the animation
+    // Reset animation
     function reset() {
       ctx.clearRect(0, 0, width, height);
       path = [];
       depth = 0;
       currentLine = null;
 
-      // Start path at origin
       drawDot(origin.x, origin.y);
-      // Prepare first line
       createNextLine(origin);
     }
 
     function createNextLine(fromPoint) {
       if (depth >= MAX_DEPTH) {
-        // Restart
+        // Pause and restart after delay
         setTimeout(() => {
           reset();
-        }, 1000);
+        }, 1500);
         return;
       }
 
-      // Pick a random direction either horizontal or vertical
-      // horizontal directions = left or right; vertical = up or down
+      // Random direction, horizontal or vertical
       const axis = Math.random() < 0.5 ? 'horizontal' : 'vertical';
       let dir;
 
@@ -173,9 +182,18 @@
     }
 
     function animate() {
+      // Clear only stars and background, NOT lines
       ctx.clearRect(0, 0, width, height);
 
       drawStars();
+
+      // Draw all finished lines
+      for (const line of path) {
+        drawLine(line.from, line.to);
+        drawDot(line.to.x, line.to.y, 4);
+      }
+
+      // Draw origin dot on top
       drawDot(origin.x, origin.y);
 
       if (currentLine) {
@@ -183,27 +201,22 @@
 
         if (currentLine.progress >= 1) {
           currentLine.progress = 1;
-          drawPartialLine(currentLine.from, currentLine.to, 1);
+          // Add completed line to path
+          path.push({ from: currentLine.from, to: currentLine.to });
+          drawLine(currentLine.from, currentLine.to);
           drawDot(currentLine.to.x, currentLine.to.y, 4);
 
-          // Move to next line from current line's end
           createNextLine(currentLine.to);
-
           currentLine = null;
         } else {
           drawPartialLine(currentLine.from, currentLine.to, currentLine.progress);
-        }
-      } else {
-        // If no current line, create next line to continue chain
-        if (depth < MAX_DEPTH) {
-          createNextLine(path.length > 0 ? path[path.length - 1] : origin);
         }
       }
 
       requestAnimationFrame(animate);
     }
 
-    // Initialize
+    // Init
     resizeCanvas();
     initStars();
     reset();
