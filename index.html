@@ -1,20 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" />
 <head>
   <meta charset="UTF-8" />
-  <title>Starry Night Lines</title>
+  <title>Randomized Starry Lines</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
       background: radial-gradient(circle at center, #0b1d51, #000011);
-      /* Dark blues resembling night sky */
     }
 
     canvas {
       display: block;
       filter: drop-shadow(0 0 6px #fffacd);
-      /* Slight pale yellow glow */
       background: transparent;
     }
   </style>
@@ -30,19 +28,19 @@
     function resizeCanvas() {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
+      origin.x = width / 2;
+      origin.y = height / 2;
     }
     window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
 
     // Settings
     const LINE_LENGTH = 50;
-    const MAX_DEPTH = 6;
-    const SPEED = 4; // pixels per frame
+    const MAX_DEPTH = 10;
+    const SPEED = 5;
 
-    const directions = ['up', 'down', 'left', 'right'];
-    const origin = { x: width / 2, y: height / 2 };
+    const origin = { x: 0, y: 0 };
 
-    // Stars array for background twinkle effect
+    // Stars for background
     const stars = [];
     const STAR_COUNT = 150;
 
@@ -58,23 +56,21 @@
           y: Math.random() * height,
           radius: Math.random() * 1.2 + 0.3,
           alpha: Math.random(),
-          delta: (Math.random() * 0.02) + 0.005, // twinkle speed
+          delta: (Math.random() * 0.02) + 0.005,
         });
       }
     }
 
     function drawStars() {
-      for (let star of stars) {
+      for (const star of stars) {
         star.alpha += star.delta;
         if (star.alpha > 1) {
           star.alpha = 1;
           star.delta *= -1;
-        }
-        if (star.alpha < 0.2) {
+        } else if (star.alpha < 0.2) {
           star.alpha = 0.2;
           star.delta *= -1;
         }
-
         ctx.beginPath();
         ctx.fillStyle = `rgba(255, 255, 200, ${star.alpha})`;
         ctx.shadowColor = 'rgba(255, 255, 200, 0.9)';
@@ -85,12 +81,16 @@
       }
     }
 
-    // Animation state
-    let queue = [];
-    let currentLine = null;
+    // Possible directions only horizontal or vertical
+    const directions = ['up', 'down', 'left', 'right'];
 
-    function drawDot(x, y, size = 4) {
-      ctx.fillStyle = '#fffacd'; // pale yellow (like starlight)
+    // Current animation state
+    let path = [];
+    let currentLine = null;
+    let depth = 0;
+
+    function drawDot(x, y, size = 5) {
+      ctx.fillStyle = '#fffacd';
       ctx.shadowColor = '#fffacd';
       ctx.shadowBlur = 12;
       ctx.beginPath();
@@ -105,7 +105,7 @@
       const px = from.x + dx * progress;
       const py = from.y + dy * progress;
 
-      ctx.strokeStyle = '#fffacd'; // pale yellow
+      ctx.strokeStyle = '#fffacd';
       ctx.lineWidth = 2;
       ctx.shadowColor = '#fffacd';
       ctx.shadowBlur = 10;
@@ -118,69 +118,93 @@
 
     function getNextPoint(x, y, direction) {
       switch (direction) {
-        case 'up': return { x: x, y: y - LINE_LENGTH };
-        case 'down': return { x: x, y: y + LINE_LENGTH };
-        case 'left': return { x: x - LINE_LENGTH, y: y };
-        case 'right': return { x: x + LINE_LENGTH, y: y };
+        case 'up':
+          return { x: x, y: y - LINE_LENGTH };
+        case 'down':
+          return { x: x, y: y + LINE_LENGTH };
+        case 'left':
+          return { x: x - LINE_LENGTH, y: y };
+        case 'right':
+          return { x: x + LINE_LENGTH, y: y };
       }
     }
 
+    // Reset the animation
     function reset() {
       ctx.clearRect(0, 0, width, height);
-      queue = [];
+      path = [];
+      depth = 0;
       currentLine = null;
-      addBranches(origin, 0);
+
+      // Start path at origin
       drawDot(origin.x, origin.y);
+      // Prepare first line
+      createNextLine(origin);
     }
 
-    function addBranches(point, depth) {
-      if (depth >= MAX_DEPTH) return;
-
-      const numBranches = Math.floor(Math.random() * 2) + 2; // 2 or 3
-      const shuffled = directions.sort(() => Math.random() - 0.5);
-
-      for (let i = 0; i < numBranches; i++) {
-        const dir = shuffled[i];
-        const to = getNextPoint(point.x, point.y, dir);
-        queue.push({
-          from: point,
-          to: to,
-          progress: 0,
-          depth: depth
-        });
+    function createNextLine(fromPoint) {
+      if (depth >= MAX_DEPTH) {
+        // Restart
+        setTimeout(() => {
+          reset();
+        }, 1000);
+        return;
       }
+
+      // Pick a random direction either horizontal or vertical
+      // horizontal directions = left or right; vertical = up or down
+      const axis = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+      let dir;
+
+      if (axis === 'horizontal') {
+        dir = Math.random() < 0.5 ? 'left' : 'right';
+      } else {
+        dir = Math.random() < 0.5 ? 'up' : 'down';
+      }
+
+      const to = getNextPoint(fromPoint.x, fromPoint.y, dir);
+
+      currentLine = {
+        from: fromPoint,
+        to,
+        progress: 0,
+      };
+      depth++;
     }
 
     function animate() {
       ctx.clearRect(0, 0, width, height);
 
       drawStars();
-
-      if (!currentLine && queue.length > 0) {
-        currentLine = queue.shift();
-      }
+      drawDot(origin.x, origin.y);
 
       if (currentLine) {
         currentLine.progress += SPEED / LINE_LENGTH;
+
         if (currentLine.progress >= 1) {
           currentLine.progress = 1;
           drawPartialLine(currentLine.from, currentLine.to, 1);
-          drawDot(currentLine.to.x, currentLine.to.y, 3);
-          addBranches(currentLine.to, currentLine.depth + 1);
+          drawDot(currentLine.to.x, currentLine.to.y, 4);
+
+          // Move to next line from current line's end
+          createNextLine(currentLine.to);
+
           currentLine = null;
         } else {
           drawPartialLine(currentLine.from, currentLine.to, currentLine.progress);
         }
-      }
-
-      if (!currentLine && queue.length === 0) {
-        // Done, restart after short pause
-        setTimeout(reset, 1000);
+      } else {
+        // If no current line, create next line to continue chain
+        if (depth < MAX_DEPTH) {
+          createNextLine(path.length > 0 ? path[path.length - 1] : origin);
+        }
       }
 
       requestAnimationFrame(animate);
     }
 
+    // Initialize
+    resizeCanvas();
     initStars();
     reset();
     animate();
