@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Starry Night Lines</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #0b1d51, #000011);
+      /* Dark blues resembling night sky */
+    }
+
+    canvas {
+      display: block;
+      filter: drop-shadow(0 0 6px #fffacd);
+      /* Slight pale yellow glow */
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let width, height;
+    function resizeCanvas() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Settings
+    const LINE_LENGTH = 50;
+    const MAX_DEPTH = 6;
+    const SPEED = 4; // pixels per frame
+
+    const directions = ['up', 'down', 'left', 'right'];
+    const origin = { x: width / 2, y: height / 2 };
+
+    // Stars array for background twinkle effect
+    const stars = [];
+    const STAR_COUNT = 150;
+
+    function randomRange(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function initStars() {
+      stars.length = 0;
+      for (let i = 0; i < STAR_COUNT; i++) {
+        stars.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          radius: Math.random() * 1.2 + 0.3,
+          alpha: Math.random(),
+          delta: (Math.random() * 0.02) + 0.005, // twinkle speed
+        });
+      }
+    }
+
+    function drawStars() {
+      for (let star of stars) {
+        star.alpha += star.delta;
+        if (star.alpha > 1) {
+          star.alpha = 1;
+          star.delta *= -1;
+        }
+        if (star.alpha < 0.2) {
+          star.alpha = 0.2;
+          star.delta *= -1;
+        }
+
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255, 255, 200, ${star.alpha})`;
+        ctx.shadowColor = 'rgba(255, 255, 200, 0.9)';
+        ctx.shadowBlur = 6;
+        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    // Animation state
+    let queue = [];
+    let currentLine = null;
+
+    function drawDot(x, y, size = 4) {
+      ctx.fillStyle = '#fffacd'; // pale yellow (like starlight)
+      ctx.shadowColor = '#fffacd';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    function drawPartialLine(from, to, progress) {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const px = from.x + dx * progress;
+      const py = from.y + dy * progress;
+
+      ctx.strokeStyle = '#fffacd'; // pale yellow
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#fffacd';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(px, py);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    function getNextPoint(x, y, direction) {
+      switch (direction) {
+        case 'up': return { x: x, y: y - LINE_LENGTH };
+        case 'down': return { x: x, y: y + LINE_LENGTH };
+        case 'left': return { x: x - LINE_LENGTH, y: y };
+        case 'right': return { x: x + LINE_LENGTH, y: y };
+      }
+    }
+
+    function reset() {
+      ctx.clearRect(0, 0, width, height);
+      queue = [];
+      currentLine = null;
+      addBranches(origin, 0);
+      drawDot(origin.x, origin.y);
+    }
+
+    function addBranches(point, depth) {
+      if (depth >= MAX_DEPTH) return;
+
+      const numBranches = Math.floor(Math.random() * 2) + 2; // 2 or 3
+      const shuffled = directions.sort(() => Math.random() - 0.5);
+
+      for (let i = 0; i < numBranches; i++) {
+        const dir = shuffled[i];
+        const to = getNextPoint(point.x, point.y, dir);
+        queue.push({
+          from: point,
+          to: to,
+          progress: 0,
+          depth: depth
+        });
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, width, height);
+
+      drawStars();
+
+      if (!currentLine && queue.length > 0) {
+        currentLine = queue.shift();
+      }
+
+      if (currentLine) {
+        currentLine.progress += SPEED / LINE_LENGTH;
+        if (currentLine.progress >= 1) {
+          currentLine.progress = 1;
+          drawPartialLine(currentLine.from, currentLine.to, 1);
+          drawDot(currentLine.to.x, currentLine.to.y, 3);
+          addBranches(currentLine.to, currentLine.depth + 1);
+          currentLine = null;
+        } else {
+          drawPartialLine(currentLine.from, currentLine.to, currentLine.progress);
+        }
+      }
+
+      if (!currentLine && queue.length === 0) {
+        // Done, restart after short pause
+        setTimeout(reset, 1000);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    initStars();
+    reset();
+    animate();
+  </script>
+</body>
+</html>
